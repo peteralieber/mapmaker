@@ -98,6 +98,10 @@ mapmaker/
 └── package.json            # Project dependencies
 ```
 
+## AI Disclosure
+- This app was largely coded by AI.
+- The ideas, features, constrains, instructions, prompts, and use cases are my own.
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) file for details
