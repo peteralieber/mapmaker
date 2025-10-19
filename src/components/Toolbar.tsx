@@ -4,8 +4,10 @@ import { DrawingMode } from '../App'
 interface ToolbarProps {
   drawingMode: DrawingMode
   selectedTool: string
+  smoothness: number
   onModeChange: (mode: DrawingMode) => void
   onToolChange: (tool: string) => void
+  onSmoothnessChange: (smoothness: number) => void
 }
 
 const pathTools = [
@@ -24,7 +26,7 @@ const shapeTools = [
   { id: 'preserve', label: 'Preserve', icon: '🏞️' }
 ]
 
-function Toolbar({ drawingMode, selectedTool, onModeChange, onToolChange }: ToolbarProps) {
+function Toolbar({ drawingMode, selectedTool, smoothness, onModeChange, onToolChange, onSmoothnessChange }: ToolbarProps) {
   const currentTools = drawingMode === 'path' ? pathTools : shapeTools
 
   return (
@@ -71,6 +73,32 @@ function Toolbar({ drawingMode, selectedTool, onModeChange, onToolChange }: Tool
           </button>
         ))}
       </div>
+
+      {drawingMode === 'path' && (
+        <div className="smoothness-control">
+          <h3>Line Smoothness</h3>
+          <div className="slider-container">
+            <label htmlFor="smoothness-slider">
+              <span className="slider-label">Smoothing: {Math.round(smoothness * 100)}%</span>
+            </label>
+            <input
+              id="smoothness-slider"
+              type="range"
+              min="0"
+              max="1"
+              step="0.1"
+              value={smoothness}
+              onChange={(e) => onSmoothnessChange(parseFloat(e.target.value))}
+              className="smoothness-slider"
+            />
+            <div className="slider-markers">
+              <span>Off</span>
+              <span>Low</span>
+              <span>High</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="instructions">
         <h3>Instructions</h3>

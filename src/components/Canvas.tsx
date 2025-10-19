@@ -1,10 +1,12 @@
 import { useRef, useState, useEffect, MouseEvent } from 'react'
 import './Canvas.css'
 import { DrawingMode } from '../App'
+import { applySmoothing } from '../utils/lineSmoothing'
 
 interface CanvasProps {
   drawingMode: DrawingMode
   selectedTool: string
+  smoothness: number
 }
 
 interface Point {
@@ -18,6 +20,7 @@ interface Path {
   type: string
   color: string
   width: number
+  pathData?: string // Optional: pre-computed smooth path data
 }
 
 interface Shape {
@@ -28,7 +31,7 @@ interface Shape {
   fill: string
 }
 
-function Canvas({ drawingMode, selectedTool }: CanvasProps) {
+function Canvas({ drawingMode, selectedTool, smoothness }: CanvasProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const [paths, setPaths] = useState<Path[]>([])
   const [shapes, setShapes] = useState<Shape[]>([])
@@ -86,12 +89,16 @@ function Canvas({ drawingMode, selectedTool }: CanvasProps) {
     if (!isDrawing) return
 
     if (drawingMode === 'path' && currentPath.length > 1) {
+      // Apply smoothing to the path
+      const { simplifiedPoints, pathData } = applySmoothing(currentPath, smoothness)
+      
       const newPath: Path = {
         id: `path-${Date.now()}`,
-        points: currentPath,
+        points: simplifiedPoints,
         type: selectedTool,
         color: getPathColor(selectedTool),
-        width: getPathWidth(selectedTool)
+        width: getPathWidth(selectedTool),
+        pathData: pathData
       }
       setPaths(prev => [...prev, newPath])
       setCurrentPath([])
@@ -187,7 +194,7 @@ function Canvas({ drawingMode, selectedTool }: CanvasProps) {
         {paths.map(path => (
           <path
             key={path.id}
-            d={pointsToPathData(path.points)}
+            d={path.pathData || pointsToPathData(path.points)}
             stroke={path.color}
             strokeWidth={path.width}
             fill="none"
