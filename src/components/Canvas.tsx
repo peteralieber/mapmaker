@@ -34,14 +34,20 @@ function Canvas({ drawingMode, selectedTool }: CanvasProps) {
   const [shapes, setShapes] = useState<Shape[]>([])
   const [currentPath, setCurrentPath] = useState<Point[]>([])
   const [currentShape, setCurrentShape] = useState<Point[]>([])
+  const [currentPolygon, setCurrentPolygon] = useState<Point[]>([])
   const [isDrawing, setIsDrawing] = useState(false)
 
   useEffect(() => {
     // Reset current drawing when mode changes
     setCurrentPath([])
     setCurrentShape([])
+    setCurrentPolygon([])
     setIsDrawing(false)
   }, [drawingMode, selectedTool])
+
+  const isPolygonTool = (tool: string): boolean => {
+    return tool === 'water' || tool === 'park'
+  }
 
   const getMousePosition = (e: MouseEvent<SVGSVGElement>): Point => {
     const svg = svgRef.current
@@ -58,13 +64,40 @@ function Canvas({ drawingMode, selectedTool }: CanvasProps) {
     if (drawingMode === 'select') return
 
     const point = getMousePosition(e)
-    setIsDrawing(true)
 
     if (drawingMode === 'path') {
+      setIsDrawing(true)
       setCurrentPath([point])
     } else if (drawingMode === 'shape') {
-      setCurrentShape([point])
+      if (isPolygonTool(selectedTool)) {
+        // Polygon mode: single click adds a point
+        if (e.detail === 2) {
+          // Double click - complete the polygon
+          handlePolygonComplete()
+        } else {
+          // Single click - add point
+          setCurrentPolygon(prev => [...prev, point])
+        }
+      } else {
+        // Rectangle mode
+        setIsDrawing(true)
+        setCurrentShape([point])
+      }
     }
+  }
+
+  const handlePolygonComplete = () => {
+    if (currentPolygon.length < 3) return // Need at least 3 points for a polygon
+
+    const newShape: Shape = {
+      id: `shape-${Date.now()}`,
+      points: currentPolygon,
+      type: selectedTool,
+      color: getShapeColor(selectedTool),
+      fill: getShapeFill(selectedTool)
+    }
+    setShapes(prev => [...prev, newShape])
+    setCurrentPolygon([])
   }
 
   const handleMouseMove = (e: MouseEvent<SVGSVGElement>) => {
@@ -162,6 +195,15 @@ function Canvas({ drawingMode, selectedTool }: CanvasProps) {
     return commands.join(' ')
   }
 
+  const pointsToPolygonPath = (points: Point[]): string => {
+    if (points.length === 0) return ''
+    const commands = points.map((p, i) => 
+      i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`
+    )
+    commands.push('Z') // Close the polygon
+    return commands.join(' ')
+  }
+
   const pointsToRectangle = (points: Point[]) => {
     if (points.length < 2) return null
     const [p1, p2] = points
@@ -198,20 +240,35 @@ function Canvas({ drawingMode, selectedTool }: CanvasProps) {
 
         {/* Render completed shapes */}
         {shapes.map(shape => {
-          const rect = pointsToRectangle(shape.points)
-          if (!rect) return null
-          return (
-            <rect
-              key={shape.id}
-              x={rect.x}
-              y={rect.y}
-              width={rect.width}
-              height={rect.height}
-              stroke={shape.color}
-              strokeWidth={2}
-              fill={shape.fill}
-            />
-          )
+          // Check if this is a polygon shape (more than 2 points) or rectangle (2 points)
+          if (shape.points.length > 2) {
+            // Render as polygon
+            return (
+              <path
+                key={shape.id}
+                d={pointsToPolygonPath(shape.points)}
+                stroke={shape.color}
+                strokeWidth={2}
+                fill={shape.fill}
+              />
+            )
+          } else {
+            // Render as rectangle
+            const rect = pointsToRectangle(shape.points)
+            if (!rect) return null
+            return (
+              <rect
+                key={shape.id}
+                x={rect.x}
+                y={rect.y}
+                width={rect.width}
+                height={rect.height}
+                stroke={shape.color}
+                strokeWidth={2}
+                fill={shape.fill}
+              />
+            )
+          }
         })}
 
         {/* Render current path being drawn */}
@@ -244,6 +301,30 @@ function Canvas({ drawingMode, selectedTool }: CanvasProps) {
             />
           )
         })()}
+
+        {/* Render current polygon being drawn */}
+        {drawingMode === 'shape' && currentPolygon.length > 0 && (
+          <>
+            {/* Draw the polygon path so far */}
+            <path
+              d={pointsToPathData(currentPolygon)}
+              stroke={getShapeColor(selectedTool)}
+              strokeWidth={2}
+              fill={getShapeFill(selectedTool)}
+              opacity={0.7}
+            />
+            {/* Draw circles at each point for visibility */}
+            {currentPolygon.map((point, index) => (
+              <circle
+                key={`point-${index}`}
+                cx={point.x}
+                cy={point.y}
+                r={4}
+                fill={getShapeColor(selectedTool)}
+              />
+            ))}
+          </>
+        )}
       </svg>
     </div>
   )

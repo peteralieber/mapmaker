@@ -77,8 +77,14 @@ function Toolbar({ drawingMode, selectedTool, onModeChange, onToolChange }: Tool
         {drawingMode === 'path' && (
           <p>Click and drag to draw continuous paths for roads, rivers, trails, etc.</p>
         )}
-        {drawingMode === 'shape' && (
-          <p>Click and drag to draw rectangular shapes for parks, water bodies, etc.</p>
+        {drawingMode === 'shape' && selectedTool === 'preserve' && (
+          <p>Click and drag to draw rectangular shapes for preserves.</p>
+        )}
+        {drawingMode === 'shape' && (selectedTool === 'park' || selectedTool === 'water') && (
+          <p>Click to add points. Double-click to complete the polygon.</p>
+        )}
+        {drawingMode === 'shape' && selectedTool !== 'park' && selectedTool !== 'water' && selectedTool !== 'preserve' && (
+          <p>Click and drag to draw rectangular shapes.</p>
         )}
         {drawingMode === 'select' && (
           <p>Select mode (not yet implemented)</p>
