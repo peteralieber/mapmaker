@@ -58,12 +58,14 @@ function Canvas({ drawingMode, selectedTool }: CanvasProps) {
     if (drawingMode === 'select') return
 
     const point = getMousePosition(e)
-    setIsDrawing(true)
 
     if (drawingMode === 'path') {
+      setIsDrawing(true)
       setCurrentPath([point])
     } else if (drawingMode === 'shape') {
-      setCurrentShape([point])
+      // For polygons, add point on click (not drag)
+      setCurrentShape(prev => [...prev, point])
+      setIsDrawing(true)
     }
   }
 
@@ -74,12 +76,8 @@ function Canvas({ drawingMode, selectedTool }: CanvasProps) {
 
     if (drawingMode === 'path') {
       setCurrentPath(prev => [...prev, point])
-    } else if (drawingMode === 'shape') {
-      setCurrentShape(prev => {
-        if (prev.length === 0) return [point]
-        return [prev[0], point]
-      })
     }
+    // Shape mode (polygon) doesn't use drag - points added on click only
   }
 
   const handleMouseUp = () => {
@@ -95,7 +93,14 @@ function Canvas({ drawingMode, selectedTool }: CanvasProps) {
       }
       setPaths(prev => [...prev, newPath])
       setCurrentPath([])
-    } else if (drawingMode === 'shape' && currentShape.length === 2) {
+      setIsDrawing(false)
+    }
+    // Shape mode (polygon) doesn't finalize on mouseup - only on double-click
+  }
+
+  const handleDoubleClick = () => {
+    if (drawingMode === 'shape' && currentShape.length >= 3) {
+      // Close the polygon by creating a shape with all points
       const newShape: Shape = {
         id: `shape-${Date.now()}`,
         points: currentShape,
@@ -105,9 +110,8 @@ function Canvas({ drawingMode, selectedTool }: CanvasProps) {
       }
       setShapes(prev => [...prev, newShape])
       setCurrentShape([])
+      setIsDrawing(false)
     }
-
-    setIsDrawing(false)
   }
 
   const getPathColor = (tool: string): string => {
@@ -162,15 +166,11 @@ function Canvas({ drawingMode, selectedTool }: CanvasProps) {
     return commands.join(' ')
   }
 
-  const pointsToRectangle = (points: Point[]) => {
-    if (points.length < 2) return null
-    const [p1, p2] = points
-    return {
-      x: Math.min(p1.x, p2.x),
-      y: Math.min(p1.y, p2.y),
-      width: Math.abs(p2.x - p1.x),
-      height: Math.abs(p2.y - p1.y)
-    }
+  const pointsToPolygonPath = (points: Point[]): string => {
+    if (points.length === 0) return ''
+    const pathData = pointsToPathData(points)
+    // Close the path by connecting back to the first point
+    return `${pathData} Z`
   }
 
   return (
@@ -182,6 +182,7 @@ function Canvas({ drawingMode, selectedTool }: CanvasProps) {
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        onDoubleClick={handleDoubleClick}
       >
         {/* Render completed paths */}
         {paths.map(path => (
@@ -197,22 +198,15 @@ function Canvas({ drawingMode, selectedTool }: CanvasProps) {
         ))}
 
         {/* Render completed shapes */}
-        {shapes.map(shape => {
-          const rect = pointsToRectangle(shape.points)
-          if (!rect) return null
-          return (
-            <rect
-              key={shape.id}
-              x={rect.x}
-              y={rect.y}
-              width={rect.width}
-              height={rect.height}
-              stroke={shape.color}
-              strokeWidth={2}
-              fill={shape.fill}
-            />
-          )
-        })}
+        {shapes.map(shape => (
+          <path
+            key={shape.id}
+            d={pointsToPolygonPath(shape.points)}
+            stroke={shape.color}
+            strokeWidth={2}
+            fill={shape.fill}
+          />
+        ))}
 
         {/* Render current path being drawn */}
         {drawingMode === 'path' && currentPath.length > 0 && (
@@ -228,22 +222,30 @@ function Canvas({ drawingMode, selectedTool }: CanvasProps) {
         )}
 
         {/* Render current shape being drawn */}
-        {drawingMode === 'shape' && currentShape.length === 2 && (() => {
-          const rect = pointsToRectangle(currentShape)
-          if (!rect) return null
-          return (
-            <rect
-              x={rect.x}
-              y={rect.y}
-              width={rect.width}
-              height={rect.height}
+        {drawingMode === 'shape' && currentShape.length > 0 && (
+          <>
+            {/* Draw the polygon preview with closing line to first point */}
+            <path
+              d={pointsToPolygonPath(currentShape)}
               stroke={getShapeColor(selectedTool)}
               strokeWidth={2}
               fill={getShapeFill(selectedTool)}
               opacity={0.7}
+              strokeDasharray="5,5"
             />
-          )
-        })()}
+            {/* Draw circles at each vertex for visibility */}
+            {currentShape.map((point, index) => (
+              <circle
+                key={index}
+                cx={point.x}
+                cy={point.y}
+                r={4}
+                fill={getShapeColor(selectedTool)}
+                opacity={0.7}
+              />
+            ))}
+          </>
+        )}
       </svg>
     </div>
   )
