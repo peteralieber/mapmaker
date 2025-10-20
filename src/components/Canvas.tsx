@@ -1,10 +1,12 @@
 import { useRef, useState, useEffect, MouseEvent } from 'react'
 import './Canvas.css'
 import { DrawingMode } from '../App'
+import { LineProperties } from './PropertiesPanel'
 
 interface CanvasProps {
   drawingMode: DrawingMode
   selectedTool: string
+  lineProperties: LineProperties
 }
 
 interface Point {
@@ -18,6 +20,8 @@ interface Path {
   type: string
   color: string
   width: number
+  dashStyle: 'solid' | 'dashed' | 'dotted'
+  lineStyle: 'single' | 'double' | 'triple'
 }
 
 interface Shape {
@@ -28,7 +32,7 @@ interface Shape {
   fill: string
 }
 
-function Canvas({ drawingMode, selectedTool }: CanvasProps) {
+function Canvas({ drawingMode, selectedTool, lineProperties }: CanvasProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const [paths, setPaths] = useState<Path[]>([])
   const [shapes, setShapes] = useState<Shape[]>([])
@@ -90,8 +94,10 @@ function Canvas({ drawingMode, selectedTool }: CanvasProps) {
         id: `path-${Date.now()}`,
         points: currentPath,
         type: selectedTool,
-        color: getPathColor(selectedTool),
-        width: getPathWidth(selectedTool)
+        color: lineProperties.color,
+        width: lineProperties.thickness,
+        dashStyle: lineProperties.dashStyle,
+        lineStyle: lineProperties.lineStyle
       }
       setPaths(prev => [...prev, newPath])
       setCurrentPath([])
@@ -108,32 +114,6 @@ function Canvas({ drawingMode, selectedTool }: CanvasProps) {
     }
 
     setIsDrawing(false)
-  }
-
-  const getPathColor = (tool: string): string => {
-    const colors: Record<string, string> = {
-      road: '#404040',
-      highway: '#e67e22',
-      railroad: '#2c3e50',
-      river: '#3498db',
-      trail: '#8b4513',
-      subway: '#e74c3c',
-      bikepath: '#27ae60'
-    }
-    return colors[tool] || '#000000'
-  }
-
-  const getPathWidth = (tool: string): number => {
-    const widths: Record<string, number> = {
-      road: 3,
-      highway: 5,
-      railroad: 2,
-      river: 4,
-      trail: 2,
-      subway: 3,
-      bikepath: 2
-    }
-    return widths[tool] || 2
   }
 
   const getShapeColor = (tool: string): string => {
@@ -173,6 +153,165 @@ function Canvas({ drawingMode, selectedTool }: CanvasProps) {
     }
   }
 
+  const getDashArray = (dashStyle: 'solid' | 'dashed' | 'dotted', width: number): string => {
+    if (dashStyle === 'solid') return 'none'
+    if (dashStyle === 'dashed') return `${width * 3} ${width * 2}`
+    if (dashStyle === 'dotted') return `${width} ${width}`
+    return 'none'
+  }
+
+  const renderPath = (path: Path) => {
+    const pathData = pointsToPathData(path.points)
+    const dashArray = getDashArray(path.dashStyle, path.width)
+
+    if (path.lineStyle === 'single') {
+      return (
+        <path
+          key={path.id}
+          d={pathData}
+          stroke={path.color}
+          strokeWidth={path.width}
+          strokeDasharray={dashArray}
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      )
+    } else if (path.lineStyle === 'double') {
+      return (
+        <g key={path.id}>
+          <path
+            d={pathData}
+            stroke={path.color}
+            strokeWidth={path.width * 2}
+            strokeDasharray={dashArray}
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <path
+            d={pathData}
+            stroke="#f5f5f5"
+            strokeWidth={path.width * 0.6}
+            strokeDasharray={dashArray}
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </g>
+      )
+    } else if (path.lineStyle === 'triple') {
+      return (
+        <g key={path.id}>
+          <path
+            d={pathData}
+            stroke={path.color}
+            strokeWidth={path.width * 2.5}
+            strokeDasharray={dashArray}
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <path
+            d={pathData}
+            stroke="#f5f5f5"
+            strokeWidth={path.width * 1.2}
+            strokeDasharray={dashArray}
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <path
+            d={pathData}
+            stroke={path.color}
+            strokeWidth={path.width * 0.4}
+            strokeDasharray={dashArray}
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </g>
+      )
+    }
+  }
+
+  const renderCurrentPath = () => {
+    if (drawingMode !== 'path' || currentPath.length === 0) return null
+
+    const pathData = pointsToPathData(currentPath)
+    const dashArray = getDashArray(lineProperties.dashStyle, lineProperties.thickness)
+
+    if (lineProperties.lineStyle === 'single') {
+      return (
+        <path
+          d={pathData}
+          stroke={lineProperties.color}
+          strokeWidth={lineProperties.thickness}
+          strokeDasharray={dashArray}
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          opacity={0.7}
+        />
+      )
+    } else if (lineProperties.lineStyle === 'double') {
+      return (
+        <g opacity={0.7}>
+          <path
+            d={pathData}
+            stroke={lineProperties.color}
+            strokeWidth={lineProperties.thickness * 2}
+            strokeDasharray={dashArray}
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <path
+            d={pathData}
+            stroke="#f5f5f5"
+            strokeWidth={lineProperties.thickness * 0.6}
+            strokeDasharray={dashArray}
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </g>
+      )
+    } else if (lineProperties.lineStyle === 'triple') {
+      return (
+        <g opacity={0.7}>
+          <path
+            d={pathData}
+            stroke={lineProperties.color}
+            strokeWidth={lineProperties.thickness * 2.5}
+            strokeDasharray={dashArray}
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <path
+            d={pathData}
+            stroke="#f5f5f5"
+            strokeWidth={lineProperties.thickness * 1.2}
+            strokeDasharray={dashArray}
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <path
+            d={pathData}
+            stroke={lineProperties.color}
+            strokeWidth={lineProperties.thickness * 0.4}
+            strokeDasharray={dashArray}
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </g>
+      )
+    }
+  }
+
   return (
     <div className="canvas-container">
       <svg
@@ -184,17 +323,7 @@ function Canvas({ drawingMode, selectedTool }: CanvasProps) {
         onMouseLeave={handleMouseUp}
       >
         {/* Render completed paths */}
-        {paths.map(path => (
-          <path
-            key={path.id}
-            d={pointsToPathData(path.points)}
-            stroke={path.color}
-            strokeWidth={path.width}
-            fill="none"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        ))}
+        {paths.map(path => renderPath(path))}
 
         {/* Render completed shapes */}
         {shapes.map(shape => {
@@ -215,17 +344,7 @@ function Canvas({ drawingMode, selectedTool }: CanvasProps) {
         })}
 
         {/* Render current path being drawn */}
-        {drawingMode === 'path' && currentPath.length > 0 && (
-          <path
-            d={pointsToPathData(currentPath)}
-            stroke={getPathColor(selectedTool)}
-            strokeWidth={getPathWidth(selectedTool)}
-            fill="none"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            opacity={0.7}
-          />
-        )}
+        {renderCurrentPath()}
 
         {/* Render current shape being drawn */}
         {drawingMode === 'shape' && currentShape.length === 2 && (() => {
